@@ -76,16 +76,35 @@ class InfoGroup(app_commands.Group):
         embed.add_field(name="Boost level", value=f"Tier {guild.premium_tier} ({guild.premium_subscription_count} boosts)")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="role", description="Show information about a role.")
+        @app_commands.command(name="role", description="Show detailed information about a role.")
     @app_commands.describe(role="The role to look up.")
     @app_commands.guild_only()
     async def role(self, interaction: discord.Interaction, role: discord.Role) -> None:
-        embed = discord.Embed(title=f"Role: {role.name}", color=role.color if role.color.value else discord.Color.blurple())
-        embed.add_field(name="Members", value=str(len(role.members)))
+        embed = discord.Embed(
+            title=f"Role: {role.name}",
+            color=role.color if role.color.value else discord.Color.blurple(),
+        )
+        if role.icon:
+            embed.set_thumbnail(url=role.icon.url)
+
+        embed.add_field(name="ID", value=str(role.id))
+        embed.add_field(name="Color", value=f"#{role.color.value:06x}" if role.color.value else "none (default)")
         embed.add_field(name="Position", value=str(role.position))
+        embed.add_field(name="Members", value=str(len(role.members)))
         embed.add_field(name="Mentionable", value=str(role.mentionable))
-        embed.add_field(name="Hoisted", value=str(role.hoist))
+        embed.add_field(name="Hoisted (shown separately)", value=str(role.hoist))
+        embed.add_field(name="Managed by integration", value=str(role.managed))
         embed.add_field(name="Created", value=discord.utils.format_dt(role.created_at, "R"))
+
+        if role.permissions.administrator:
+            perms_text = "**Administrator** (implicitly grants everything)"
+        else:
+            granted = [name.replace("_", " ").title() for name, value in role.permissions if value]
+            perms_text = ", ".join(granted) if granted else "*(no permissions granted)*"
+            if len(perms_text) > 1000:
+                perms_text = perms_text[:1000] + "… (truncated)"
+        embed.add_field(name="Permissions", value=perms_text, inline=False)
+
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="channel", description="Show information about a channel.")
