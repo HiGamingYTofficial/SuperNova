@@ -1,11 +1,4 @@
-"""cogs/moderation/mod.py — moderation commands, grouped under /mod.
-
-Unlike /text and /roleplay, these are deliberately left at their
-Discord default (guild-only, not user-installable): moderation actions
-only make sense where the bot has actually been invited and granted
-permissions in that specific server, and Discord will not let a
-user-installed command touch guild moderation endpoints anyway.
-"""
+"""cogs/moderation/mod.py — moderation commands, grouped under /mod."""
 
 from __future__ import annotations
 
@@ -17,18 +10,37 @@ from discord.ext import commands
 
 
 class ModGroup(app_commands.Group):
-    """/mod — moderation actions. Requires the bot to be in the server
-    with the relevant permission, and the caller to have it too."""
-
     def __init__(self) -> None:
         super().__init__(name="mod", description="Moderation commands (server-only).")
+
+    @staticmethod
+    async def _reply_error(interaction: discord.Interaction, error: Exception) -> None:
+        if isinstance(error, discord.Forbidden):
+            message = (
+                "I don't have permission to do that. Check that I have the right "
+                "permission enabled, and that my role is positioned ABOVE the "
+                "target member's highest role in Server Settings → Roles."
+            )
+        elif isinstance(error, discord.HTTPException):
+            message = f"Discord rejected that action: {error}"
+        else:
+            message = f"Something went wrong: {error}"
+
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
 
     @app_commands.command(name="kick", description="Kick a member from this server.")
     @app_commands.describe(member="Member to kick.", reason="Reason shown in the audit log.")
     @app_commands.default_permissions(kick_members=True)
     @app_commands.guild_only()
     async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided.") -> None:
-        await member.kick(reason=reason)
+        try:
+            await member.kick(reason=reason)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         await interaction.response.send_message(f"Kicked {member.mention}. Reason: {reason}")
 
     @app_commands.command(name="ban", description="Ban a member from this server.")
@@ -36,7 +48,11 @@ class ModGroup(app_commands.Group):
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
     async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided.") -> None:
-        await member.ban(reason=reason)
+        try:
+            await member.ban(reason=reason)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         await interaction.response.send_message(f"Banned {member.mention}. Reason: {reason}")
 
     @app_commands.command(name="timeout", description="Timeout a member.")
@@ -45,7 +61,11 @@ class ModGroup(app_commands.Group):
     @app_commands.guild_only()
     async def timeout(self, interaction: discord.Interaction, member: discord.Member, minutes: app_commands.Range[int, 1, 40320]) -> None:
         until = discord.utils.utcnow() + timedelta(minutes=minutes)
-        await member.timeout(until, reason=f"Timed out by {interaction.user}")
+        try:
+            await member.timeout(until, reason=f"Timed out by {interaction.user}")
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         await interaction.response.send_message(f"{member.mention} timed out for {minutes} minute(s).")
 
     @app_commands.command(name="purge", description="Delete recent messages in this channel.")
@@ -54,10 +74,14 @@ class ModGroup(app_commands.Group):
     @app_commands.guild_only()
     async def purge(self, interaction: discord.Interaction, count: app_commands.Range[int, 1, 100]) -> None:
         await interaction.response.defer(ephemeral=True)
-        deleted = await interaction.channel.purge(limit=count)
+        try:
+            deleted = await interaction.channel.purge(limit=count)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         await interaction.followup.send(f"Deleted {len(deleted)} message(s).", ephemeral=True)
 
-    @app_commands.command(name="warn", description="Warn a member (logged in-memory; see note in mod.py).")
+    @app_commands.command(name="warn", description="Warn a member (logged in-memory).")
     @app_commands.describe(member="Member to warn.", reason="Reason for the warning.")
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.guild_only()
@@ -92,7 +116,11 @@ class ModGroup(app_commands.Group):
         except ValueError:
             await interaction.response.send_message("That doesn't look like a valid user ID.", ephemeral=True)
             return
-        await interaction.guild.unban(user, reason=reason)
+        try:
+            await interaction.guild.unban(user, reason=reason)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         await interaction.response.send_message(f"Unbanned user ID `{user_id}`.")
 
     @app_commands.command(name="slowmode", description="Set slowmode delay for this channel.")
@@ -100,7 +128,11 @@ class ModGroup(app_commands.Group):
     @app_commands.default_permissions(manage_channels=True)
     @app_commands.guild_only()
     async def slowmode(self, interaction: discord.Interaction, seconds: app_commands.Range[int, 0, 21600]) -> None:
-        await interaction.channel.edit(slowmode_delay=seconds)
+        try:
+            await interaction.channel.edit(slowmode_delay=seconds)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         if seconds == 0:
             await interaction.response.send_message("Slowmode disabled.")
         else:
@@ -111,7 +143,11 @@ class ModGroup(app_commands.Group):
     @app_commands.default_permissions(manage_nicknames=True)
     @app_commands.guild_only()
     async def nickname(self, interaction: discord.Interaction, member: discord.Member, nickname: str | None = None) -> None:
-        await member.edit(nick=nickname)
+        try:
+            await member.edit(nick=nickname)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            await self._reply_error(interaction, error)
+            return
         if nickname:
             await interaction.response.send_message(f"Renamed {member.mention} to `{nickname}`.")
         else:
