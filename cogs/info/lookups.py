@@ -1,4 +1,7 @@
-"""cogs/info/lookups.py — /info group: avatar, banner, userinfo, useraccountage, server, role, channel."""
+"""cogs/info/lookups.py — consolidated info-lookup commands, grouped
+under /info: avatar, banner, userinfo, useraccountage, server, role,
+channel.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +13,8 @@ from discord.ext import commands
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 class InfoGroup(app_commands.Group):
+    """/info — lookups for users, servers, roles, and channels."""
+
     def __init__(self) -> None:
         super().__init__(name="info", description="Look up information about users, servers, roles, and channels.")
 
@@ -76,7 +81,7 @@ class InfoGroup(app_commands.Group):
         embed.add_field(name="Boost level", value=f"Tier {guild.premium_tier} ({guild.premium_subscription_count} boosts)")
         await interaction.response.send_message(embed=embed)
 
-        @app_commands.command(name="role", description="Show detailed information about a role.")
+    @app_commands.command(name="role", description="Show detailed information about a role.")
     @app_commands.describe(role="The role to look up.")
     @app_commands.guild_only()
     async def role(self, interaction: discord.Interaction, role: discord.Role) -> None:
