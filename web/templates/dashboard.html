@@ -3,27 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{ bot_name }} — Status Dashboard</title>
+  <title>{{ bot_name }} — Dashboard</title>
   <meta http-equiv="refresh" content="15" />
   <style>
     :root { color-scheme: dark; }
     body {
-      margin: 0; padding: 2.5rem 1.5rem; min-height: 100vh; box-sizing: border-box;
+      margin: 0; padding: 2.5rem 1.5rem 4rem; min-height: 100vh; box-sizing: border-box;
       background: #0e0f13; color: #e7e8ec;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    .wrap { max-width: 780px; margin: 0 auto; }
+    .wrap { max-width: 960px; margin: 0 auto; }
     h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 .25rem; }
-    .sub { color: #8b8d98; font-size: .9rem; margin-bottom: 2rem; }
+    h2 { font-size: .95rem; color: #8b8d98; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 .75rem; }
+    .sub { color: #8b8d98; font-size: .9rem; margin-bottom: 2rem; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
     .status-pill {
       display: inline-flex; align-items: center; gap: .4rem;
       padding: .3rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
       background: {{ 'rgba(46,204,113,.12)' if ready else 'rgba(231,76,60,.12)' }};
       color: {{ '#2ecc71' if ready else '#e74c3c' }};
     }
+    .auth-pill {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .3rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 600;
+      background: {{ 'rgba(46,204,113,.10)' if auth_enabled else 'rgba(231,76,60,.10)' }};
+      color: {{ '#2ecc71' if auth_enabled else '#e74c3c' }};
+    }
     .dot { width: .5rem; height: .5rem; border-radius: 999px; background: currentColor; }
     .grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 1rem; margin: 1.75rem 0;
     }
     .card {
@@ -31,14 +38,22 @@
     }
     .card .label { color: #8b8d98; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
     .card .value { font-size: 1.5rem; font-weight: 600; margin-top: .3rem; }
-    .section { margin-top: 2rem; }
-    .section h2 { font-size: .95rem; color: #8b8d98; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-    ul.ext-list { list-style: none; padding: 0; margin: .5rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+    .section { margin-top: 2.25rem; }
+    ul.ext-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
     ul.ext-list li {
       background: #16181d; border: 1px solid #24262e; border-radius: 6px;
       padding: .3rem .6rem; font-size: .8rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
     ul.ext-list li.failed { border-color: rgba(231,76,60,.4); color: #e74c3c; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { text-align: left; color: #8b8d98; font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; padding: 0 .6rem .5rem 0; }
+    td { padding: .5rem .6rem .5rem 0; border-top: 1px solid #1e2027; vertical-align: top; }
+    td.command { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #9aa3ff; white-space: nowrap; }
+    td.args { color: #cfd1d8; word-break: break-word; max-width: 320px; }
+    td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #8b8d98; white-space: nowrap; }
+    .table-wrap { overflow-x: auto; background: #16181d; border: 1px solid #24262e; border-radius: 12px; padding: .5rem 1rem; }
+    .empty-note { color: #55575f; font-size: .85rem; padding: .5rem 0; }
+    .table-caption { color: #55575f; font-size: .75rem; margin-top: .5rem; }
     footer { margin-top: 2.5rem; color: #55575f; font-size: .75rem; }
   </style>
 </head>
@@ -47,13 +62,15 @@
     <h1>{{ bot_name }}</h1>
     <div class="sub">
       <span class="status-pill"><span class="dot"></span>{{ 'Connected' if ready else 'Connecting…' }}</span>
+      <span class="auth-pill">{{ '🔒 Dashboard protected' if auth_enabled else '⚠️ Dashboard is PUBLIC — no password set' }}</span>
     </div>
 
     <div class="grid">
       <div class="card"><div class="label">Guilds</div><div class="value">{{ guild_count }}</div></div>
-      <div class="card"><div class="label">Gateway latency</div><div class="value">{{ latency_ms ~ ' ms' if latency_ms is not none else '—' }}</div></div>
+      <div class="card"><div class="label">Ping</div><div class="value">{{ latency_ms ~ ' ms' if latency_ms is not none else '—' }}</div></div>
       <div class="card"><div class="label">Uptime</div><div class="value">{{ uptime }}</div></div>
       <div class="card"><div class="label">Commands run</div><div class="value">{{ commands_executed }}</div></div>
+      <div class="card"><div class="label">Personal installs seen</div><div class="value">{{ installed_user_count }}</div></div>
     </div>
 
     <div class="section">
@@ -61,16 +78,71 @@
       <ul class="ext-list">
         {% for ext in loaded_extensions %}<li>{{ ext }}</li>{% else %}<li>none yet</li>{% endfor %}
       </ul>
+      {% if failed_extensions %}
+      <div style="margin-top:.75rem;">
+        <span style="color:#e74c3c; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em;">Failed ({{ failed_extensions|length }})</span>
+        <ul class="ext-list" style="margin-top:.4rem;">
+          {% for ext in failed_extensions %}<li class="failed">{{ ext }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
     </div>
 
-    {% if failed_extensions %}
     <div class="section">
-      <h2>Failed extensions ({{ failed_extensions|length }})</h2>
-      <ul class="ext-list">
-        {% for ext in failed_extensions %}<li class="failed">{{ ext }}</li>{% endfor %}
-      </ul>
+      <h2>Servers ({{ guild_list|length }})</h2>
+      <div class="table-wrap">
+        {% if guild_list %}
+        <table>
+          <tr><th>Name</th><th>Members</th><th>ID</th></tr>
+          {% for g in guild_list %}
+          <tr><td>{{ g.name }}</td><td>{{ g.member_count }}</td><td class="mono">{{ g.id }}</td></tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty-note">Not in any servers yet — invite the bot to see it here.</div>
+        {% endif %}
+      </div>
     </div>
-    {% endif %}
+
+    <div class="section">
+      <h2>Recent command activity (last {{ command_log|length }} of {{ command_log_total }} logged)</h2>
+      <div class="table-wrap">
+        {% if command_log %}
+        <table>
+          <tr><th>Time</th><th>Command</th><th>Arguments</th><th>User</th><th>Where</th></tr>
+          {% for row in command_log %}
+          <tr>
+            <td class="mono">{{ row.time }}</td>
+            <td class="command">/{{ row.command }}</td>
+            <td class="args">{{ row.args }}</td>
+            <td>{{ row.user }}</td>
+            <td>{{ row.context }}{% if row.guild_name != '—' %} · {{ row.guild_name }}{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty-note">No commands run yet.</div>
+        {% endif %}
+      </div>
+      <div class="table-caption">Only the most recent {{ command_log|length }} entries are shown here; up to 500 are kept in memory. This log resets when the bot restarts.</div>
+    </div>
+
+    <div class="section">
+      <h2>Accounts seen via Personal Install ({{ installed_users|length }} of {{ installed_user_count }})</h2>
+      <div class="table-wrap">
+        {% if installed_users %}
+        <table>
+          <tr><th>User</th><th>First seen</th><th>Last seen</th></tr>
+          {% for u in installed_users %}
+          <tr><td>{{ u.username }}</td><td class="mono">{{ u.first_seen }}</td><td class="mono">{{ u.last_seen }}</td></tr>
+          {% endfor %}
+        </table>
+        {% else %}
+        <div class="empty-note">No personal-install usage observed yet.</div>
+        {% endif %}
+      </div>
+      <div class="table-caption">Discord doesn't send an event when someone installs your app to their account — this list is built from the first time each account is observed running a command outside a server, so it's an approximation, not a full install count.</div>
+    </div>
 
     <footer>
       Auto-refreshes every 15s · JSON at <code>/metrics</code> · health check at <code>/health</code>
