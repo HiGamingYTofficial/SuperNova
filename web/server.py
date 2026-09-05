@@ -142,7 +142,7 @@ def build_web_app(*, bot: "FrameworkBot", config: "BotConfig") -> web.Applicatio
     app["bot"] = bot
     app["config"] = config
 
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(str(TEMPLATES_DIR)))
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(str(TEMPLATES_DIR)), autoescape=True)
 
     app.router.add_get("/health", health)
     app.router.add_get("/healthz", health)
