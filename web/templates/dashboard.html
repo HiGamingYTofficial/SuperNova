@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ bot_name }} — Dashboard</title>
-  <meta http-equiv="refresh" content="30" />
   <style>
     :root { color-scheme: dark; }
     body {
@@ -19,16 +18,23 @@
     .status-pill {
       display: inline-flex; align-items: center; gap: .4rem;
       padding: .3rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
-      background: {{ 'rgba(46,204,113,.12)' if ready else 'rgba(231,76,60,.12)' }};
-      color: {{ '#2ecc71' if ready else '#e74c3c' }};
     }
+    .status-pill.is-ready { background: rgba(46,204,113,.12); color: #2ecc71; }
+    .status-pill.is-down { background: rgba(231,76,60,.12); color: #e74c3c; }
     .auth-pill {
       display: inline-flex; align-items: center; gap: .4rem;
       padding: .3rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 600;
-      background: {{ 'rgba(46,204,113,.10)' if auth_enabled else 'rgba(231,76,60,.10)' }};
-      color: {{ '#2ecc71' if auth_enabled else '#e74c3c' }};
+    }
+    .auth-pill.is-protected { background: rgba(46,204,113,.10); color: #2ecc71; }
+    .auth-pill.is-public { background: rgba(231,76,60,.10); color: #e74c3c; }
+    .live-pill {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .3rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 600;
+      background: rgba(154,163,255,.10); color: #9aa3ff;
     }
     .dot { width: .5rem; height: .5rem; border-radius: 999px; background: currentColor; }
+    .dot.pulse { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
     .grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 1rem; margin: 1.75rem 0;
@@ -61,36 +67,39 @@
   <div class="wrap">
     <h1>{{ bot_name }}</h1>
     <div class="sub">
-      <span class="status-pill"><span class="dot"></span>{{ 'Connected' if ready else 'Connecting…' }}</span>
-      <span class="auth-pill">{{ '🔒 Dashboard protected' if auth_enabled else '⚠️ Dashboard is PUBLIC — no password set' }}</span>
+      <span id="status-pill" class="status-pill {{ 'is-ready' if ready else 'is-down' }}">
+        <span class="dot"></span><span id="status-text">{{ 'Connected' if ready else 'Connecting…' }}</span>
+      </span>
+      <span class="auth-pill {{ 'is-protected' if auth_enabled else 'is-public' }}">
+        {{ '🔒 Dashboard protected' if auth_enabled else '⚠️ Dashboard is PUBLIC — no password set' }}
+      </span>
+      <span class="live-pill"><span class="dot pulse"></span>Live — updates every second</span>
     </div>
 
     <div class="grid">
-      <div class="card"><div class="label">Guilds</div><div class="value">{{ guild_count }}</div></div>
-      <div class="card"><div class="label">Ping</div><div class="value">{{ latency_ms ~ ' ms' if latency_ms is not none else '—' }}</div></div>
-      <div class="card"><div class="label">Uptime</div><div class="value">{{ uptime }}</div></div>
-      <div class="card"><div class="label">Commands run</div><div class="value">{{ commands_executed }}</div></div>
-      <div class="card"><div class="label">Personal installs seen</div><div class="value">{{ installed_user_count }}</div></div>
+      <div class="card"><div class="label">Guilds</div><div class="value" id="stat-guilds">{{ guild_count }}</div></div>
+      <div class="card"><div class="label">Ping</div><div class="value" id="stat-ping">{{ latency_ms ~ ' ms' if latency_ms is not none else '—' }}</div></div>
+      <div class="card"><div class="label">Uptime</div><div class="value" id="stat-uptime">{{ uptime }}</div></div>
+      <div class="card"><div class="label">Commands run</div><div class="value" id="stat-commands">{{ commands_executed }}</div></div>
+      <div class="card"><div class="label">Personal installs seen</div><div class="value" id="stat-installs">{{ installed_user_count }}</div></div>
     </div>
 
     <div class="section">
-      <h2>Loaded extensions ({{ loaded_extensions|length }})</h2>
-      <ul class="ext-list">
+      <h2>Loaded extensions (<span id="ext-loaded-count">{{ loaded_extensions|length }}</span>)</h2>
+      <ul class="ext-list" id="ext-loaded-list">
         {% for ext in loaded_extensions %}<li>{{ ext }}</li>{% else %}<li>none yet</li>{% endfor %}
       </ul>
-      {% if failed_extensions %}
-      <div style="margin-top:.75rem;">
-        <span style="color:#e74c3c; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em;">Failed ({{ failed_extensions|length }})</span>
-        <ul class="ext-list" style="margin-top:.4rem;">
+      <div id="failed-section" style="margin-top:.75rem; {{ '' if failed_extensions else 'display:none;' }}">
+        <span style="color:#e74c3c; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em;">Failed (<span id="ext-failed-count">{{ failed_extensions|length }}</span>)</span>
+        <ul class="ext-list" id="ext-failed-list" style="margin-top:.4rem;">
           {% for ext in failed_extensions %}<li class="failed">{{ ext }}</li>{% endfor %}
         </ul>
       </div>
-      {% endif %}
     </div>
 
     <div class="section">
-      <h2>Servers ({{ guild_list|length }})</h2>
-      <div class="table-wrap">
+      <h2>Servers (<span id="servers-count">{{ guild_list|length }}</span>)</h2>
+      <div class="table-wrap" id="servers-table-wrap">
         {% if guild_list %}
         <table>
           <tr><th>Name</th><th>Members</th><th>ID</th></tr>
@@ -105,8 +114,8 @@
     </div>
 
     <div class="section">
-      <h2>Recent command activity (last {{ command_log|length }} of {{ command_log_total }} logged)</h2>
-      <div class="table-wrap">
+      <h2>Recent command activity (last <span id="activity-shown-count">{{ command_log|length }}</span> of <span id="activity-total-count">{{ command_log_total }}</span> logged)</h2>
+      <div class="table-wrap" id="activity-table-wrap">
         {% if command_log %}
         <table>
           <tr><th>Time</th><th>Command</th><th>Arguments</th><th>User</th><th>Where</th></tr>
@@ -124,12 +133,12 @@
         <div class="empty-note">No commands run yet.</div>
         {% endif %}
       </div>
-      <div class="table-caption">Only the most recent {{ command_log|length }} entries are shown here; up to 500 are kept in memory. This log resets when the bot restarts.</div>
+      <div class="table-caption">Only the most recent entries are shown here; up to 500 are kept in memory. This log resets when the bot restarts.</div>
     </div>
 
     <div class="section">
-      <h2>Accounts seen via Personal Install ({{ installed_users|length }} of {{ installed_user_count }})</h2>
-      <div class="table-wrap">
+      <h2>Accounts seen via Personal Install (<span id="installs-shown-count">{{ installed_users|length }}</span> of <span id="installs-total-count">{{ installed_user_count }}</span>)</h2>
+      <div class="table-wrap" id="installs-table-wrap">
         {% if installed_users %}
         <table>
           <tr><th>User</th><th>First seen</th><th>Last seen</th></tr>
@@ -145,8 +154,131 @@
     </div>
 
     <footer>
-      Auto-refreshes every 30s · JSON at <code>/metrics</code> · health check at <code>/health</code>
+      Live-updating every second · JSON at <code>/metrics</code> · health check at <code>/health</code>
     </footer>
   </div>
+
+  <script>
+    const POLL_INTERVAL_MS = 1000;
+
+    function makeEl(tag, { className, text } = {}) {
+      const e = document.createElement(tag);
+      if (className) e.className = className;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    function renderList(container, items, isFailed) {
+      container.innerHTML = "";
+      if (!items.length) {
+        container.appendChild(makeEl("li", { text: isFailed ? "" : "none yet" }));
+        return;
+      }
+      for (const name of items) {
+        container.appendChild(makeEl("li", { className: isFailed ? "failed" : undefined, text: name }));
+      }
+    }
+
+    function renderTable(wrap, headers, rows, rowBuilder, emptyText) {
+      wrap.innerHTML = "";
+      if (!rows.length) {
+        wrap.appendChild(makeEl("div", { className: "empty-note", text: emptyText }));
+        return;
+      }
+      const table = document.createElement("table");
+      const headRow = document.createElement("tr");
+      headers.forEach((h) => headRow.appendChild(makeEl("th", { text: h })));
+      table.appendChild(headRow);
+      rows.forEach((row) => table.appendChild(rowBuilder(row)));
+      wrap.appendChild(table);
+    }
+
+    async function refreshDashboard() {
+      let data;
+      try {
+        const res = await fetch("/metrics", { credentials: "same-origin", cache: "no-store" });
+        if (!res.ok) return;
+        data = await res.json();
+      } catch (err) {
+        return;
+      }
+
+      const pill = document.getElementById("status-pill");
+      pill.classList.toggle("is-ready", data.ready);
+      pill.classList.toggle("is-down", !data.ready);
+      document.getElementById("status-text").textContent = data.ready ? "Connected" : "Connecting…";
+
+      document.getElementById("stat-guilds").textContent = data.guild_count;
+      document.getElementById("stat-ping").textContent = data.latency_ms !== null ? data.latency_ms + " ms" : "—";
+      document.getElementById("stat-uptime").textContent = data.uptime;
+      document.getElementById("stat-commands").textContent = data.commands_executed;
+      document.getElementById("stat-installs").textContent = data.installed_user_count;
+
+      document.getElementById("ext-loaded-count").textContent = data.loaded_extensions.length;
+      renderList(document.getElementById("ext-loaded-list"), data.loaded_extensions, false);
+
+      const failedSection = document.getElementById("failed-section");
+      if (data.failed_extensions.length) {
+        failedSection.style.display = "";
+        document.getElementById("ext-failed-count").textContent = data.failed_extensions.length;
+        renderList(document.getElementById("ext-failed-list"), data.failed_extensions, true);
+      } else {
+        failedSection.style.display = "none";
+      }
+
+      document.getElementById("servers-count").textContent = data.guild_list.length;
+      renderTable(
+        document.getElementById("servers-table-wrap"),
+        ["Name", "Members", "ID"],
+        data.guild_list,
+        (g) => {
+          const tr = document.createElement("tr");
+          tr.appendChild(makeEl("td", { text: g.name }));
+          tr.appendChild(makeEl("td", { text: g.member_count }));
+          tr.appendChild(makeEl("td", { className: "mono", text: g.id }));
+          return tr;
+        },
+        "Not in any servers yet — invite the bot to see it here."
+      );
+
+      document.getElementById("activity-shown-count").textContent = data.command_log.length;
+      document.getElementById("activity-total-count").textContent = data.command_log_total;
+      renderTable(
+        document.getElementById("activity-table-wrap"),
+        ["Time", "Command", "Arguments", "User", "Where"],
+        data.command_log,
+        (row) => {
+          const tr = document.createElement("tr");
+          tr.appendChild(makeEl("td", { className: "mono", text: row.time }));
+          tr.appendChild(makeEl("td", { className: "command", text: "/" + row.command }));
+          tr.appendChild(makeEl("td", { className: "args", text: row.args }));
+          tr.appendChild(makeEl("td", { text: row.user }));
+          const where = row.guild_name !== "—" ? row.context + " · " + row.guild_name : row.context;
+          tr.appendChild(makeEl("td", { text: where }));
+          return tr;
+        },
+        "No commands run yet."
+      );
+
+      document.getElementById("installs-shown-count").textContent = data.installed_users.length;
+      document.getElementById("installs-total-count").textContent = data.installed_user_count;
+      renderTable(
+        document.getElementById("installs-table-wrap"),
+        ["User", "First seen", "Last seen"],
+        data.installed_users,
+        (u) => {
+          const tr = document.createElement("tr");
+          tr.appendChild(makeEl("td", { text: u.username }));
+          tr.appendChild(makeEl("td", { className: "mono", text: u.first_seen }));
+          tr.appendChild(makeEl("td", { className: "mono", text: u.last_seen }));
+          return tr;
+        },
+        "No personal-install usage observed yet."
+      );
+    }
+
+    refreshDashboard();
+    setInterval(refreshDashboard, POLL_INTERVAL_MS);
+  </script>
 </body>
 </html>
