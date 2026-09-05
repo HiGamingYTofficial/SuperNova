@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ bot_name }} — Dashboard</title>
-  <meta http-equiv="refresh" content="15" />
+  <meta http-equiv="refresh" content="30" />
   <style>
     :root { color-scheme: dark; }
     body {
@@ -105,48 +105,4 @@
     </div>
 
     <div class="section">
-      <h2>Recent command activity (last {{ command_log|length }} of {{ command_log_total }} logged)</h2>
-      <div class="table-wrap">
-        {% if command_log %}
-        <table>
-          <tr><th>Time</th><th>Command</th><th>Arguments</th><th>User</th><th>Where</th></tr>
-          {% for row in command_log %}
-          <tr>
-            <td class="mono">{{ row.time }}</td>
-            <td class="command">/{{ row.command }}</td>
-            <td class="args">{{ row.args }}</td>
-            <td>{{ row.user }}</td>
-            <td>{{ row.context }}{% if row.guild_name != '—' %} · {{ row.guild_name }}{% endif %}</td>
-          </tr>
-          {% endfor %}
-        </table>
-        {% else %}
-        <div class="empty-note">No commands run yet.</div>
-        {% endif %}
-      </div>
-      <div class="table-caption">Only the most recent {{ command_log|length }} entries are shown here; up to 500 are kept in memory. This log resets when the bot restarts.</div>
-    </div>
-
-    <div class="section">
-      <h2>Accounts seen via Personal Install ({{ installed_users|length }} of {{ installed_user_count }})</h2>
-      <div class="table-wrap">
-        {% if installed_users %}
-        <table>
-          <tr><th>User</th><th>First seen</th><th>Last seen</th></tr>
-          {% for u in installed_users %}
-          <tr><td>{{ u.username }}</td><td class="mono">{{ u.first_seen }}</td><td class="mono">{{ u.last_seen }}</td></tr>
-          {% endfor %}
-        </table>
-        {% else %}
-        <div class="empty-note">No personal-install usage observed yet.</div>
-        {% endif %}
-      </div>
-      <div class="table-caption">Discord doesn't send an event when someone installs your app to their account — this list is built from the first time each account is observed running a command outside a server, so it's an approximation, not a full install count.</div>
-    </div>
-
-    <footer>
-      Auto-refreshes every 15s · JSON at <code>/metrics</code> · health check at <code>/health</code>
-    </footer>
-  </div>
-</body>
-</html>
+      <h2>Recent command activity (last {{
